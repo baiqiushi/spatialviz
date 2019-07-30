@@ -69,11 +69,11 @@ public class DBConnector extends AbstractActor {
         ObjectNode result = JsonNodeFactory.instance.objectNode();
 
         // TODO - use another function to rewrite query into a list of SQL string statemnts
-        String sql = " SELECT x, y " +
-                " FROM tweets " +
-                " WHERE create_at between '" + query.start + "' AND '" + query.end + "' " +
-                " AND x between " + query.x0 + " AND " + query.x1 +
-                " AND y between " + query.y0 + " AND " + query.y1;
+        String sql = " SELECT pickup_longitude, pickup_latitude " +
+                " FROM yellow_pickup " +
+                " WHERE pickup_datetime between '" + query.start + "' AND '" + query.end + "' " +
+                " AND pickup_longitude between " + query.x0 + " AND " + query.x1 +
+                " AND pickup_latitude between " + query.y0 + " AND " + query.y1 + " LIMIT 100000 ";
 
         try {
             PreparedStatement statement = conn.prepareStatement(sql);

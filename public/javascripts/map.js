@@ -4,40 +4,30 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
     $scope.times = [];
     $scope.timestamps = {};
 
-    $scope.keyword = "";
     $scope.resultCount = 0;
+    $scope.east = 0;
+    $scope.west = 0;
+    $scope.south = 0;
+    $scope.north = 0;
 
     $scope.ws = new WebSocket("ws://" + location.host + "/ws");
-    $scope.pinmapMapResul = [];
+    $scope.pinmapMapResult = [];
 
-    $scope.sendQuery = function(e) {
-      console.log("e = " + e);
-
-      $scope.resultCount = 0;
-      //var query = {offset: $scope.offset, limit: $scope.limit, byArray: true};
-      var query = {byArray: true};
-      if (e.keyword) {
-        $scope.keyword = e.keyword;
-        query["keyword"] = $scope.keyword;
-      }
-      if (e.slicingMode === "By-Interval") {
-        query["mode"] = "interval"
-      } else if (e.slicingMode === "By-Offset") {
-        query["mode"] = "offset"
-      }
-      if (e.excludes) {
-        query["excludes"] = true
-      }
-      $scope.timestamps.t0 = Date.now();
-      console.log("sending query:");
-      console.log(query);
-
-      $scope.ws.send(JSON.stringify(query));
-    };
-
-    $scope.sendCmd = function(command) {
-      var cmd = {cmd: command};
-      $scope.ws.send(JSON.stringify(cmd));
+    $scope.sendQuery = function() {
+        console.log("east =", $scope.east);
+        console.log("west =", $scope.west);
+        console.log("south =", $scope.south);
+        console.log("north =", $scope.north);
+        $scope.resultCount = 0;
+        var query = {start: "2009-01-01 00:00:00", end: "2009-01-31 23:59:59"};
+        query["x0"] = $scope.west;
+        query["y0"] = $scope.south;
+        query["x1"] = $scope.east;
+        query["y1"] = $scope.north;
+        $scope.timestamps.t0 = Date.now();
+        console.log("sending query:");
+        console.log(query);
+        $scope.ws.send(JSON.stringify(query));
     };
 
     $scope.waitForWS = function() {
@@ -46,7 +36,7 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
         window.setTimeout($scope.waitForWS, 1000);
       }
       else {
-        //$scope.sendQuery();
+        $scope.sendQuery();
         moduleManager.publishEvent(moduleManager.EVENT.WS_READY, {});
       }
     };
@@ -75,6 +65,20 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
         //making attribution control to false to remove the default leaflet sign in the bottom of map
         map.attributionControl.setPrefix(false);
         map.setView([$scope.lat, $scope.lng], $scope.zoom);
+        //get bounding box of current map
+        $scope.east = map.getBounds().getEast();
+        $scope.west = map.getBounds().getWest();
+        $scope.south = map.getBounds().getSouth();
+        $scope.north = map.getBounds().getNorth();
+        //get bounding box and redraw the points when the map is moved
+        map.on('moveend', function() {
+            $scope.east = map.getBounds().getEast();
+            $scope.west = map.getBounds().getWest();
+            $scope.south = map.getBounds().getSouth();
+            $scope.north = map.getBounds().getNorth();
+            $scope.cleanPinMap();
+            $scope.sendQuery();
+        });
       });
 
       //Reset Zoom Button
@@ -90,13 +94,13 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
       var body = document.body;
       body.appendChild(button);
       button.addEventListener("click", function () {
-        $scope.map.setView([$scope.lat, $scope.lng], 4);
+        $scope.map.setView([$scope.lat, $scope.lng], $scope.zoom);
       });
 
       $scope.waitForWS();
-      moduleManager.subscribeEvent(moduleManager.EVENT.CHANGE_SEARCH_KEYWORD, function(e) {
+      moduleManager.subscribeEvent(moduleManager.EVENT.CHANGE_ZOOM_LEVEL, function(event) {
         $scope.cleanPinMap();
-        $scope.sendQuery(e);
+        $scope.sendQuery();
       });
     };
 
@@ -115,23 +119,9 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
 
         const response = JSONbig.parse(event.data);
 
-        if (response.done) {
-          console.log("-------- Done! --------");
-          function toCSV(array) {
-            var csv = "";
-            array.forEach(function(row) {
-              csv += row.join(",") + "\n";
-            });
-            return csv;
-          }
-          console.log(toCSV($scope.times));
-          $scope.times = [];
-          return;
-        }
-
         $scope.timestamps.t8 = Date.now();
 
-        //console.log("ws.onmessage <= " + JSON.stringify(response));
+        // console.log("ws.onmessage <= " + JSON.stringify(response));
 
         $scope.timestamps.length = response.length;
         $scope.timestamps.t1 = response.t1;
@@ -142,7 +132,7 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
         $scope.timestamps.T6 = response.T6;
         $scope.timestamps.t6 = response.t6;
 
-        $scope.handleResult(response.data);
+        $scope.handleResult(response.result);
 
         $scope.timestamps.keyword = $scope.keyword;
         $scope.times.push([
@@ -165,34 +155,13 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
       });
     };
 
-    // For randomize coordinates by bounding_box
-    var randomizationSeed;
-
-    // javascript does not provide API for setting seed for its random function, so we need to implement it ourselves.
-    function CustomRandom() {
-      var x = Math.sin(randomizationSeed++) * 10000;
-      return x - Math.floor(x);
-    }
-
-    // return a random number with normal distribution
-    function randomNorm(mean, stdev) {
-      return mean + (((CustomRandom() + CustomRandom() + CustomRandom() + CustomRandom() + CustomRandom() + CustomRandom()) - 3) / 3) * stdev;
-    }
-
-    // randomize a pin coordinate for a tweet according to the bounding box (normally distributed within the bounding box) when the actual coordinate is not availalble.
-    // by using the tweet id as the seed, the same tweet will always be randomized to the same coordinate.
-    $scope.rangeRandom = function rangeRandom(seed, minV, maxV){
-      randomizationSeed = seed;
-      return randomNorm((minV + maxV) / 2, (maxV - minV) / 16);
-    };
-
     // function for drawing pinmap
     $scope.drawPinMap = function(result) {
 
       //To initialize the points layer
       if (!$scope.pointsLayer) {
         $scope.pointsLayer = new WebGLPointLayer();
-        $scope.pointsLayer.setPointSize(3);
+        $scope.pointsLayer.setPointSize(0.5);
         $scope.pointsLayer.setPointColor(0, 0, 255);
         $scope.map.addLayer($scope.pointsLayer);
         $scope.points = [];
@@ -200,38 +169,13 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
 
       //Update the points data
       if (result.length > 0) {
-        // (1) returned by array - all coordinates of all records in one array
-        if (result.byArray) {
-          var coordinates = result.coordinates;
-          var ids = result.ids;
           $scope.points = [];
           for (var i = 0; i < result.length; i++) {
-            $scope.points.push([coordinates[i][1], coordinates[i][0], ids[i]]);
+              $scope.points.push([result[i][1], result[i][0], i]);
           }
-
           console.log("drawing points size = " + $scope.points.length);
-          //console.log($scope.points);
+          // console.log($scope.points);
           return $scope.pointsLayer.appendData($scope.points);
-        }
-        // (2) returned by json - each record in one json object
-        else {
-          $scope.points = [];
-          for (let i = 0; i < result.length; i++) {
-            if (result[i].hasOwnProperty("coordinate")) {
-              $scope.points.push([result[i].coordinate[1], result[i].coordinate[0], result[i].id]);
-            }
-            else if (result[i].hasOwnProperty("place.bounding_box")) {
-              $scope.points.push([$scope.rangeRandom(result[i].id, result[i]["place.bounding_box"][0][1], result[i]["place.bounding_box"][1][1]), $scope.rangeRandom(result[i].id + 79, result[i]["place.bounding_box"][0][0], result[i]["place.bounding_box"][1][0]), result[i].id]); // 79 is a magic number to avoid using the same seed for generating both the longitude and latitude.
-            }
-            else {
-              $scope.points.push([result[i].y, result[i].x, result[i].id]);
-            }
-          }
-
-          console.log("drawing points size = " + $scope.points.length);
-          //console.log($scope.points);
-          return $scope.pointsLayer.appendData($scope.points);
-        }
       }
 
       return 0;

@@ -16,11 +16,11 @@ import javax.inject.Inject;
 public class DBConnector extends AbstractActor {
 
     private Connection conn = null;
-    private Config config = null;
-    private String driver = null;
-    private String url = null;
-    private String username = null;
-    private String password = null;
+    private Config config;
+    private String driver;
+    private String url;
+    private String username;
+    private String password;
 
     public static Props props(ActorRef out, Config config) {
         return Props.create(DBConnector.class, out, config);
@@ -28,14 +28,64 @@ public class DBConnector extends AbstractActor {
 
     private final ActorRef out;
 
+    private String name;
+    private double[] xRange;
+    private double[] yRange;
+    private String table;
+    private String xCol;
+    private String yCol;
+    private String time;
+    private String timeMin;
+    private String timeMax;
+    private String timeFormat;
+    private int nInterval;
+    private int nBucket;
+    private double[][] map;
+
+    private double[] base_res;
+    private int num_zooms;
+    private int zoom_step;
+    private String mrv_table;
+    private String mrvplus_table;
+    private String mrvplusplus_table;
+    private String mrv_xCol;
+    private String mrv_yCol;
+
     @Inject
     public DBConnector(ActorRef out, Config config) {
         this.out = out;
         this.config = config;
+
+        // PostgreSQL config
         this.driver = config.getString("postgresql.driver");
         this.url = config.getString("postgresql.url");
         this.username = config.getString("postgresql.username");
         this.password = config.getString("postgresql.password");
+
+        // NYC Taxi dataset config
+        this.name = config.getString("nyc.name");
+        this.xRange = new double[]{config.getDoubleList(this.name + ".xRange").get(0), config.getDoubleList(this.name + ".xRange").get(1)};
+        this.yRange = new double[]{config.getDoubleList(this.name + ".yRange").get(0), config.getDoubleList(this.name + ".yRange").get(1)};
+        this.map = new double[][]{this.xRange, this.yRange};
+        this.table = config.getString(this.name + ".table");
+        this.xCol = config.getString(this.name + ".xCol");
+        this.yCol = config.getString(this.name + ".yCol");
+        this.time = config.getString(this.name + ".time");
+        this.timeMin = config.getString(this.name + ".timeMin");
+        this.timeMax = config.getString(this.name + ".timeMax");
+        this.timeFormat = config.getString(this.name + ".timeFormat");
+        this.nInterval = config.getInt(this.name + ".nInterval");
+        this.nBucket = config.getInt(this.name + ".nBucket");
+
+        // mrv config
+        this.base_res = new double[]{config.getDoubleList("mrv.base_res").get(0), config.getDoubleList("mrv.base_res").get(1)};
+        this.num_zooms = config.getInt("mrv.num_zooms");
+        this.zoom_step = config.getInt("mrv.zoom_step");
+        this.mrv_table = config.getString("mrv.mrv_table");
+        this.mrvplus_table = config.getString("mrv.mrvplus_table");
+        this.mrvplusplus_table = config.getString("mrv.mrvplusplus_table");
+        this.mrv_xCol = config.getString("mrv.xCol");
+        this.mrv_yCol = config.getString("mrv.yCol");
 
         connectDB();
     }
@@ -65,16 +115,44 @@ public class DBConnector extends AbstractActor {
         return true;
     }
 
-    private JsonNode queryDB(Query query) {
+    private int range_zoom_level(double x0, double y0, double x1, double y1) {
+        double delta_x = Math.abs(x1 - x0);
+        double delta_y = Math.abs(y1 - y0);
+        double ratio_x = Math.ceil((map[0][1] - map[0][0]) / delta_x);
+        double ratio_y = Math.ceil((map[1][1] - map[1][0]) / delta_y);
+        int zoom_level_x = (int) Math.ceil(Math.log(ratio_x) / Math.log(2));
+        int zoom_level_y = (int) Math.ceil(Math.log(ratio_y) / Math.log(2));
+        return Math.max(zoom_level_x, zoom_level_y);
+    }
+
+    private double[] get_steps(int zoom_level) {
+        double[] ranges = {map[0][1] - map[0][0], map[1][1] - map[1][0]};
+        double[] res = {base_res[0] * Math.pow(zoom_step, zoom_level), base_res[1] * Math.pow(zoom_step, zoom_level)};
+        return new double[]{ranges[0] / res[0], ranges[1] / res[1]};
+    }
+
+    private double[] project_query_range(double x0, double y0, double x1, double y1, int zoom_level) {
+        x0 = x0 - map[0][0];
+        y0 = y0 - map[1][0];
+        x1 = x1 - map[0][0];
+        y1 = y1 - map[1][0];
+        double[] steps = get_steps(zoom_level);
+        double px0 = (double) Math.round(x0 / steps[0]);
+        double px1 = Math.ceil(x1 / steps[0]);
+        double py0 = (double) Math.round(y0 / steps[1]);
+        double py1 = Math.ceil(y1 / steps[1]);
+        return new double[]{px0, py0, px1, py1};
+    }
+
+    private ObjectNode query_raw_table(Query query) {
         ObjectNode result = JsonNodeFactory.instance.objectNode();
-
-        // TODO - use another function to rewrite query into a list of SQL string statemnts
-        String sql = " SELECT pickup_longitude, pickup_latitude " +
-                " FROM yellow_pickup " +
-                " WHERE pickup_datetime between '" + query.start + "' AND '" + query.end + "' " +
-                " AND pickup_longitude between " + query.x0 + " AND " + query.x1 +
-                " AND pickup_latitude between " + query.y0 + " AND " + query.y1 + " LIMIT 100000 ";
-
+        String sql = " SELECT " + xCol + ", " + yCol +
+                " FROM " + table +
+                " WHERE " + time + " between '" + query.start + "' AND '" + query.end + "' " +
+                " AND " + xCol + " between " + query.x0 + " AND " + query.x1 +
+                " AND " + yCol + " between " + query.y0 + " AND " + query.y1;
+        result.put("query", sql);
+        long start = System.nanoTime();
         try {
             PreparedStatement statement = conn.prepareStatement(sql);
             MyLogger.info(this.getClass(), "SQL statement = \n" + statement);
@@ -90,6 +168,58 @@ public class DBConnector extends AbstractActor {
             MyLogger.info(this.getClass(), "query finished, result size = " + resultArray.size());
         } catch (SQLException e) {
             MyLogger.error(this.getClass(), e.getMessage());
+        }
+        long end = System.nanoTime();
+        long query_time = end - start;
+        System.out.println("query done, time: " + query_time / 1000000 + " ms");
+        result.put("time", query_time);
+        return result;
+    }
+
+    private ObjectNode query_mrv_table(Query query, int zoom_level) {
+        ObjectNode result = JsonNodeFactory.instance.objectNode();
+        double[] p = project_query_range(query.x0, query.y0, query.x1, query.y1, zoom_level);
+        String sql = " SELECT " + mrv_xCol + ", " + mrv_yCol +
+                " FROM " + mrv_table + "_" + zoom_level +
+                " WHERE " + mrv_xCol + " between " + p[0] + " AND " + p[2] +
+                " AND " + mrv_yCol + " between " + p[1] + " AND " + p[3];
+        result.put("query", sql);
+        long start = System.nanoTime();
+        try {
+            PreparedStatement statement = conn.prepareStatement(sql);
+            MyLogger.info(this.getClass(), "SQL statement = \n" + statement);
+            ResultSet rs = statement.executeQuery();
+            ArrayNode resultArray = result.putArray("result");
+            double[] steps = get_steps(zoom_level);
+            while (rs.next()) {
+                ArrayNode resultTuple = JsonNodeFactory.instance.arrayNode();
+                resultTuple.add((float) (map[0][0] + rs.getDouble(1) * steps[0]));
+                resultTuple.add((float) (map[1][0] + rs.getDouble(2) * steps[1]));
+                resultArray.add(resultTuple);
+            }
+            result.put("length", resultArray.size());
+            MyLogger.info(this.getClass(), "query finished, result size = " + resultArray.size());
+        } catch (SQLException e) {
+            MyLogger.error(this.getClass(), e.getMessage());
+        }
+        long end = System.nanoTime();
+        long query_time = end - start;
+        System.out.println("query done, time: " + query_time / 1000000 + " ms");
+        result.put("time", query_time);
+        return result;
+    }
+
+    private JsonNode queryDB(Query query) {
+        ObjectNode result = JsonNodeFactory.instance.objectNode();
+        if (query.mode.equalsIgnoreCase("raw data")) {
+            result = query_raw_table(query);
+        } else if (query.mode.equalsIgnoreCase("mrv")) {
+            int zoom_level = range_zoom_level(query.x0, query.y0, query.x1, query.y1);
+            if (zoom_level > num_zooms - 1) {
+                result = query_raw_table(query);
+            } else {
+                result = query_mrv_table(query, zoom_level);
+            }
         }
         return result;
     }

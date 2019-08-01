@@ -7,6 +7,7 @@ public class Query {
     public double y0;
     public double x1;
     public double y1;
+    public String mode;
 
     @Override
     public String toString() {
@@ -16,6 +17,7 @@ public class Query {
                 + "x0 = " + this.x0 + "\n"
                 + "y0 = " + this.y0 + "\n"
                 + "x1 = " + this.x1 + "\n"
-                + "y1 = " + this.y1 + "\n";
+                + "y1 = " + this.y1 + "\n"
+                + "mode = " + this.mode + "\n";
     }
 }

@@ -341,3 +341,12 @@ mapchoose li #img1, #img2 {
   overflow: hidden;
   width: 100%;
 }
+
+/* Dropdown Button */
+.dropbtn {
+  background-color: #4CAF50;
+  color: white;
+  padding: 16px;
+  font-size: 16px;
+  border: none;
+}

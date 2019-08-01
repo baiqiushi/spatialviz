@@ -340,7 +340,8 @@ var WebGLPointLayer = L.CanvasLayer.extend({
         var mapMatrix = new Float32Array(16);
 
         pixelsToWebGLMatrix.set([2 / canvas.width, 0, 0, 0, 0, -2 / canvas.height, 0, 0, 0, 0, 0, 0, -1, 1, 0, 1]);
-        var pointSize = Math.max(map.getZoom() - 4.0, this._pointSize);
+        // var pointSize = Math.max(map.getZoom() - 4.0, this._pointSize);
+        var pointSize = this._pointSize;
         mapMatrix.set(pixelsToWebGLMatrix);
         var bounds = map.getBounds();
         var topLeft = new L.LatLng(bounds.getNorth(), bounds.getWest());

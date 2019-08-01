@@ -1,6 +1,6 @@
 @()
 
-@main("Welcome to Play") {
+@main("NYC Taxi Dataset Visualization") {
 
   @*
   * Get an `Html` object by calling the built-in Play welcome
@@ -8,12 +8,14 @@
   *@
   @* welcome(message, style = "scala") *@
   <div xmlns="http://www.w3.org/1999/html" ng-controller="AppCtrl">
+
     <div class="map-group">
-      <map lat="40.7146" lng="-74.0071" zoom="11"></map>
+      <map lat="40.75" lng="-73.9" zoom="11"></map>
     </div>
 
     <div class="stats" ng-controller="CountCtrl">
       {{resultCount}}
     </div>
+
   </div>
 }

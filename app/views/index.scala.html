@@ -18,9 +18,15 @@
     </div>
 
     <div class="wrapper" ng-controller="TimeCtrl" id="timebar">
-      <rzslider  rz-slider-model="slider.minValue"
-      rz-slider-high="slider.maxValue"
-      rz-slider-options="slider.options"></rzslider>
+      Start Time:
+      <label>
+        <input type="datetime-local" ng-model="slider.minValue" />
+      </label>
+      End Time:
+      <label>
+        <input type="datetime-local" ng-model="slider.maxValue" />
+      </label>
+      <rzslider  rz-slider-model="slider.minValue" rz-slider-high="slider.maxValue" rz-slider-options="slider.options"></rzslider>
     </div>
 
   </div>

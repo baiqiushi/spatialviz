@@ -53,7 +53,7 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
         window.setTimeout($scope.waitForWS, 1000);
       }
       else {
-        $scope.sendQuery({start: $scope.start, end: $scope.end});
+        //$scope.sendQuery({start: $scope.start, end: $scope.end})
         moduleManager.publishEvent(moduleManager.EVENT.WS_READY, {});
       }
     };
@@ -125,19 +125,35 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
       dropdown.addEventListener("change", function () {
           $scope.approach = this.value;
           $scope.cleanPinMap();
+      });
+
+      //Reset Zoom Button
+      var send_button = document.createElement("a");
+      var send_text = document.createTextNode("Send Query");
+      send_button.appendChild(send_text);
+      send_button.title = "Send Query";
+      send_button.href = "#";
+      send_button.style.position = 'inherit';
+      send_button.style.top = '3%';
+      send_button.style.right = '1%';
+      send_button.style.fontSize = '14px';
+      body.appendChild(send_button);
+      send_button.addEventListener("click", function () {
           $scope.sendQuery({start: $scope.start, end: $scope.end});
       });
 
       $scope.waitForWS();
       moduleManager.subscribeEvent(moduleManager.EVENT.CHANGE_ZOOM_OR_REGION, function(event) {
         $scope.cleanPinMap();
-        $scope.sendQuery({start: event.start, end: event.end});
+        //$scope.sendQuery({start: $scope.start, end: $scope.end})
       });
       moduleManager.subscribeEvent(moduleManager.EVENT.CHANGE_TIME_SERIES_RANGE, function(event) {
-          $scope.start = event.start;
-          $scope.end = event.end;
-          $scope.cleanPinMap();
-          $scope.sendQuery({start: event.start, end: event.end});
+        $scope.start = event.start;
+        $scope.end = event.end;
+        console.log('start:', $scope.start);
+        console.log('end:', $scope.end);
+        $scope.cleanPinMap();
+        //$scope.sendQuery({start: $scope.start, end: $scope.end})
       });
     };
 

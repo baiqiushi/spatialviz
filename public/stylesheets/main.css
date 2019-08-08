@@ -350,3 +350,10 @@ mapchoose li #img1, #img2 {
   font-size: 16px;
   border: none;
 }
+
+#timebar {
+  position:absolute;
+  right:20px;
+  bottom:10px;
+  width:75%;
+}

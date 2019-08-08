@@ -22,14 +22,20 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
         $scope.sendQuery();
     }
 
-    $scope.sendQuery = function() {
+    $scope.sendQuery = function(e) {
+        $scope.east = $scope.map.getBounds().getEast();
+        $scope.west = $scope.map.getBounds().getWest();
+        $scope.south = $scope.map.getBounds().getSouth();
+        $scope.north = $scope.map.getBounds().getNorth();
         console.log("east =", $scope.east);
         console.log("west =", $scope.west);
         console.log("south =", $scope.south);
         console.log("north =", $scope.north);
         console.log("mode =", $scope.approach);
+        console.log("start =", $scope.start);
+        console.log("end =", $scope.end);
         $scope.resultCount = 0;
-        var query = {start: "2009-01-01 00:00:00", end: "2009-01-02 23:59:59"};
+        var query = {start: e.start, end: e.end};
         query["x0"] = $scope.west;
         query["y0"] = $scope.south;
         query["x1"] = $scope.east;
@@ -47,7 +53,7 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
         window.setTimeout($scope.waitForWS, 1000);
       }
       else {
-        $scope.sendQuery();
+        $scope.sendQuery({start: $scope.start, end: $scope.end});
         moduleManager.publishEvent(moduleManager.EVENT.WS_READY, {});
       }
     };
@@ -83,14 +89,15 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
         $scope.north = map.getBounds().getNorth();
         //set default query mode
         $scope.approach = "mrv";
+        //set default query time
+        $scope.start = "2009-01-01 00:00:00"
+        $scope.end = "2009-01-31 23:59:59"
         //get bounding box and redraw the points when zooming and panning
-        map.on('moveend', function() {
-            $scope.east = map.getBounds().getEast();
-            $scope.west = map.getBounds().getWest();
-            $scope.south = map.getBounds().getSouth();
-            $scope.north = map.getBounds().getNorth();
-            $scope.cleanPinMap();
-            $scope.sendQuery();
+        map.on('zoomend', function() {
+            moduleManager.publishEvent(moduleManager.EVENT.CHANGE_ZOOM_LEVEL, {start: $scope.start, end: $scope.end});
+        });
+        map.on('dragend', function() {
+            moduleManager.publishEvent(moduleManager.EVENT.CHANGE_REGION_BY_DRAG, {start: $scope.start, end: $scope.end});
         });
       });
 
@@ -121,13 +128,23 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
       dropdown.addEventListener("change", function () {
           $scope.approach = this.value;
           $scope.cleanPinMap();
-          $scope.sendQuery();
+          $scope.sendQuery({start: $scope.start, end: $scope.end});
       });
 
       $scope.waitForWS();
       moduleManager.subscribeEvent(moduleManager.EVENT.CHANGE_ZOOM_LEVEL, function(event) {
         $scope.cleanPinMap();
-        $scope.sendQuery();
+        $scope.sendQuery({start: $scope.start, end: $scope.end});
+      });
+      moduleManager.subscribeEvent(moduleManager.EVENT.CHANGE_REGION_BY_DRAG, function(event) {
+        $scope.cleanPinMap();
+        $scope.sendQuery({start: $scope.start, end: $scope.end});
+      });
+      moduleManager.subscribeEvent(moduleManager.EVENT.CHANGE_TIME_SERIES_RANGE, function(event) {
+          $scope.start = event.start;
+          $scope.end = event.end;
+          $scope.cleanPinMap();
+          $scope.sendQuery({start: $scope.start, end: $scope.end});
       });
     };
 

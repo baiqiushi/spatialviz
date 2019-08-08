@@ -13,6 +13,7 @@ angular.module("pinmap.time", ["pinmap.map", "rzSlider", "ui.bootstrap"])
             maxValue: intervalArray[intervalArray.length-1],
             options: {
                 stepsArray: intervalArray,
+                draggableRange: true,
                 translate: function(interval) {
                     if (interval != null)
                         return interval.toUTCString();

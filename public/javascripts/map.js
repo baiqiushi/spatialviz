@@ -32,8 +32,8 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
         console.log("south =", $scope.south);
         console.log("north =", $scope.north);
         console.log("mode =", $scope.approach);
-        console.log("start =", $scope.start);
-        console.log("end =", $scope.end);
+        console.log("start =", e.start);
+        console.log("end =", e.end);
         $scope.resultCount = 0;
         var query = {start: e.start, end: e.end};
         query["x0"] = $scope.west;
@@ -93,11 +93,8 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
         $scope.start = "2009-01-01 00:00:00"
         $scope.end = "2009-01-31 23:59:59"
         //get bounding box and redraw the points when zooming and panning
-        map.on('zoomend', function() {
-            moduleManager.publishEvent(moduleManager.EVENT.CHANGE_ZOOM_LEVEL, {start: $scope.start, end: $scope.end});
-        });
-        map.on('dragend', function() {
-            moduleManager.publishEvent(moduleManager.EVENT.CHANGE_REGION_BY_DRAG, {start: $scope.start, end: $scope.end});
+        map.on('moveend', function() {
+            moduleManager.publishEvent(moduleManager.EVENT.CHANGE_ZOOM_OR_REGION, {start: $scope.start, end: $scope.end});
         });
       });
 
@@ -132,19 +129,15 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
       });
 
       $scope.waitForWS();
-      moduleManager.subscribeEvent(moduleManager.EVENT.CHANGE_ZOOM_LEVEL, function(event) {
+      moduleManager.subscribeEvent(moduleManager.EVENT.CHANGE_ZOOM_OR_REGION, function(event) {
         $scope.cleanPinMap();
-        $scope.sendQuery({start: $scope.start, end: $scope.end});
-      });
-      moduleManager.subscribeEvent(moduleManager.EVENT.CHANGE_REGION_BY_DRAG, function(event) {
-        $scope.cleanPinMap();
-        $scope.sendQuery({start: $scope.start, end: $scope.end});
+        $scope.sendQuery({start: event.start, end: event.end});
       });
       moduleManager.subscribeEvent(moduleManager.EVENT.CHANGE_TIME_SERIES_RANGE, function(event) {
           $scope.start = event.start;
           $scope.end = event.end;
           $scope.cleanPinMap();
-          $scope.sendQuery({start: $scope.start, end: $scope.end});
+          $scope.sendQuery({start: event.start, end: event.end});
       });
     };
 

@@ -54,7 +54,8 @@ angular.module("pinmap.common", [])
                 CHANGE_REGION_BY_DRAG: "CHANGE_REGION_BY_DRAG",
                 CHANGE_MAP_TYPE: "CHANGE_MAP_TYPE",
                 WS_READY: "WS_READY",
-                CHANGE_RESULT_COUNT: "CHANGE_RESULT_COUNT"
+                CHANGE_RESULT_COUNT: "CHANGE_RESULT_COUNT",
+                CHANGE_ZOOM_OR_REGION: "CHANGE_ZOOM_OR_REGION"
             },
 
             /**

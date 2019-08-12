@@ -181,30 +181,43 @@ public class DBConnector extends AbstractActor {
         double[] p = project_query_range(query.x0, query.y0, query.x1, query.y1, zoom_level);
         String sql = " SELECT " + mrv_xCol + ", " + mrv_yCol +
                 " FROM " + mrv_table + "_" + zoom_level +
-                " WHERE " + mrv_xCol + " between " + p[0] + " AND " + p[2] +
-                " AND " + mrv_yCol + " between " + p[1] + " AND " + p[3];
+                " WHERE " + mrv_xCol + " between " + (int)p[0] + " AND " + (int)p[2] +
+                " AND " + mrv_yCol + " between " + (int)p[1] + " AND " + (int)p[3];
         result.put("query", sql);
+        long query_time = 0L;
+        long parse_time = 0L;
         long start = System.nanoTime();
         try {
             PreparedStatement statement = conn.prepareStatement(sql);
             MyLogger.info(this.getClass(), "SQL statement = \n" + statement);
             ResultSet rs = statement.executeQuery();
+            query_time += System.nanoTime() - start;
+            start = System.nanoTime();
             ArrayNode resultArray = result.putArray("result");
+            parse_time += System.nanoTime() - start;
             double[] steps = get_steps(zoom_level);
+            start = System.nanoTime();
             while (rs.next()) {
+                double x = rs.getDouble(1);
+                double y = rs.getDouble(2);
+                query_time += System.nanoTime() - start;
+                start = System.nanoTime();
                 ArrayNode resultTuple = JsonNodeFactory.instance.arrayNode();
-                resultTuple.add((float) (map[0][0] + rs.getDouble(1) * steps[0]));
-                resultTuple.add((float) (map[1][0] + rs.getDouble(2) * steps[1]));
+                resultTuple.add((float) (map[0][0] + x * steps[0]));
+                resultTuple.add((float) (map[1][0] + y * steps[1]));
                 resultArray.add(resultTuple);
+                parse_time += System.nanoTime() - start;
+                start = System.nanoTime();
             }
+            start = System.nanoTime();
             result.put("length", resultArray.size());
+            parse_time += System.nanoTime() - start;
             MyLogger.info(this.getClass(), "query finished, result size = " + resultArray.size());
         } catch (SQLException e) {
             MyLogger.error(this.getClass(), e.getMessage());
         }
-        long end = System.nanoTime();
-        long query_time = end - start;
-        System.out.println("query done, time: " + query_time / 1000000 + " ms");
+        System.out.println("query time: " + query_time / 1000000 + " ms");
+        System.out.println("parse time: " + parse_time / 1000000 + " ms");
         result.put("time", query_time);
         return result;
     }

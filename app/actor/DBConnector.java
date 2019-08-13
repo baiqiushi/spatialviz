@@ -118,10 +118,10 @@ public class DBConnector extends AbstractActor {
     private int range_zoom_level(double x0, double y0, double x1, double y1) {
         double delta_x = Math.abs(x1 - x0);
         double delta_y = Math.abs(y1 - y0);
-        double ratio_x = Math.ceil((map[0][1] - map[0][0]) / delta_x);
-        double ratio_y = Math.ceil((map[1][1] - map[1][0]) / delta_y);
-        int zoom_level_x = (int) Math.ceil(Math.log(ratio_x) / Math.log(2));
-        int zoom_level_y = (int) Math.ceil(Math.log(ratio_y) / Math.log(2));
+        double ratio_x = (map[0][1] - map[0][0]) / delta_x;
+        double ratio_y = (map[1][1] - map[1][0]) / delta_y;
+        int zoom_level_x = (int) (Math.log(ratio_x) / Math.log(2));
+        int zoom_level_y = (int) (Math.log(ratio_y) / Math.log(2));
         return Math.max(zoom_level_x, zoom_level_y);
     }
 

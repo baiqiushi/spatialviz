@@ -53,7 +53,8 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
         window.setTimeout($scope.waitForWS, 1000);
       }
       else {
-        //$scope.sendQuery({start: $scope.start, end: $scope.end})
+        if ($scope.approach === 'mrv')
+          $scope.sendQuery({start: $scope.start, end: $scope.end});
         moduleManager.publishEvent(moduleManager.EVENT.WS_READY, {});
       }
     };
@@ -125,6 +126,8 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
       dropdown.addEventListener("change", function () {
           $scope.approach = this.value;
           $scope.cleanPinMap();
+          if ($scope.approach === 'mrv')
+              $scope.sendQuery({start: $scope.start, end: $scope.end});
       });
 
       //Reset Zoom Button
@@ -139,13 +142,15 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
       send_button.style.fontSize = '14px';
       body.appendChild(send_button);
       send_button.addEventListener("click", function () {
+          $scope.cleanPinMap();
           $scope.sendQuery({start: $scope.start, end: $scope.end});
       });
 
       $scope.waitForWS();
       moduleManager.subscribeEvent(moduleManager.EVENT.CHANGE_ZOOM_OR_REGION, function(event) {
         $scope.cleanPinMap();
-        //$scope.sendQuery({start: $scope.start, end: $scope.end})
+        if ($scope.approach === 'mrv')
+            $scope.sendQuery({start: $scope.start, end: $scope.end});
       });
       moduleManager.subscribeEvent(moduleManager.EVENT.CHANGE_TIME_SERIES_RANGE, function(event) {
         $scope.start = event.start;
@@ -153,7 +158,8 @@ angular.module("pinmap.map", ["leaflet-directive", "pinmap.common"])
         console.log('start:', $scope.start);
         console.log('end:', $scope.end);
         $scope.cleanPinMap();
-        //$scope.sendQuery({start: $scope.start, end: $scope.end})
+        if ($scope.approach === 'mrv')
+            $scope.sendQuery({start: $scope.start, end: $scope.end});
       });
     };
 

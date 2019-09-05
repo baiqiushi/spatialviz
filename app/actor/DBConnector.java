@@ -120,8 +120,8 @@ public class DBConnector extends AbstractActor {
         double delta_y = Math.abs(y1 - y0);
         double ratio_x = (map[0][1] - map[0][0]) / delta_x;
         double ratio_y = (map[1][1] - map[1][0]) / delta_y;
-        int zoom_level_x = (int) (Math.log(ratio_x) / Math.log(2));
-        int zoom_level_y = (int) (Math.log(ratio_y) / Math.log(2));
+        int zoom_level_x =  (int) Math.round(Math.log(ratio_x) / Math.log(2));
+        int zoom_level_y = (int) Math.round(Math.log(ratio_y) / Math.log(2));
         return Math.max(zoom_level_x, zoom_level_y);
     }
 
